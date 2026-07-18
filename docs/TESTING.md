@@ -122,7 +122,3 @@ Should show every entry: 3× `advance_credit`, 3× `reconciliation_adjustment`,
 
 ---
 
-If every step above matches, the system is verified against a real
-database, not just the in-memory demo. Worth a line in your submission
-email: *"Tested end-to-end against Postgres, including idempotency and
-race-condition guards."*
