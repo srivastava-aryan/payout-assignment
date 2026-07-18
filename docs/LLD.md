@@ -170,11 +170,4 @@ webhook once the real-world outcome is known.
   not rounded, so the sum of an advance and its later adjustment can never
   exceed the sale's original earning.
 
-## 7. What I'd add for production (out of scope here)
 
-- Auth/authorization middleware distinguishing admin vs. user routes.
-- Idempotency keys on the withdrawal-settlement webhook at the HTTP layer,
-  in addition to the DB-level guard.
-- Pagination on `/ledger` and `/sales` for users with long histories.
-- A real job scheduler (e.g. `node-cron` or a managed queue) instead of the
-  manual/CLI trigger included here.
