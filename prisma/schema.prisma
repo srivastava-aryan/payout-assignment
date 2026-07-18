@@ -1,0 +1,122 @@
+// Faym Payout System — Prisma schema
+// Postgres. Design notes are in docs/LLD.md.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SaleStatus {
+  pending
+  approved
+  rejected
+}
+
+enum WithdrawalStatus {
+  pending // requested, not yet settled by payment provider
+  success
+  failed
+  rejected
+  cancelled
+}
+
+// Every credit/debit to a user's balance is an append-only ledger row.
+// The user's withdrawable balance is DERIVED (sum of entries), never stored
+// as a mutable column — this avoids lost-update races under concurrent jobs
+// and gives a free audit trail. See docs/LLD.md "Why a ledger" section.
+enum LedgerEntryType {
+  advance_credit // 10% advance paid out on a pending sale
+  reconciliation_adjustment // + remainder on approval, - clawback on rejection
+  withdrawal_debit // user withdrew money out of the platform
+  failed_payout_credit // a withdrawal failed/was rejected/cancelled -> refunded to balance
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  createdAt DateTime @default(now())
+
+  sales       Sale[]
+  ledger      LedgerEntry[]
+  withdrawals Withdrawal[]
+
+  @@map("users")
+}
+
+model Brand {
+  id    String @id @default(cuid())
+  name  String @unique
+  sales Sale[]
+
+  @@map("brands")
+}
+
+model Sale {
+  id      String     @id @default(cuid())
+  userId  String
+  brandId String
+  status  SaleStatus @default(pending)
+  earning Decimal    @db.Decimal(12, 2)
+
+  // Idempotency guard for the advance payout job. Once set, the job must
+  // never touch this sale again, even if it re-scans pending sales.
+  advancePaid       Boolean  @default(false)
+  advancePaidAmount Decimal? @db.Decimal(12, 2)
+  advancePaidAt     DateTime?
+
+  // Idempotency guard for reconciliation. A sale can only be reconciled once
+  // — enforced both here and by only allowing the pending -> {approved,
+  // rejected} transition inside a DB transaction (see reconciliationService).
+  reconciledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id])
+  brand Brand @relation(fields: [brandId], references: [id])
+
+  ledgerEntries LedgerEntry[]
+
+  @@index([userId, status])
+  @@index([status, advancePaid]) // used by the advance-payout job scan
+  @@map("sales")
+}
+
+model LedgerEntry {
+  id        String          @id @default(cuid())
+  userId    String
+  type      LedgerEntryType
+  amount    Decimal         @db.Decimal(12, 2) // signed: negative = debit
+  saleId    String?
+  withdrawalId String?
+  createdAt DateTime        @default(now())
+
+  user       User        @relation(fields: [userId], references: [id])
+  sale       Sale?       @relation(fields: [saleId], references: [id])
+  withdrawal Withdrawal? @relation(fields: [withdrawalId], references: [id])
+
+  @@index([userId])
+  @@map("ledger_entries")
+}
+
+model Withdrawal {
+  id        String            @id @default(cuid())
+  userId    String
+  amount    Decimal           @db.Decimal(12, 2)
+  status    WithdrawalStatus  @default(pending)
+  createdAt DateTime          @default(now())
+  settledAt DateTime?
+
+  user          User          @relation(fields: [userId], references: [id])
+  ledgerEntries LedgerEntry[]
+
+  // Enables the "one withdrawal every 24h" rule to be checked with a single
+  // indexed range query instead of scanning all withdrawals per user.
+  @@index([userId, createdAt])
+  @@map("withdrawals")
+}
