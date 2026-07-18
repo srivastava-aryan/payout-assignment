@@ -96,3 +96,6 @@ JavaScript (Node.js), Express, Prisma, PostgreSQL. All money fields use
 Prisma's `Decimal` type end to end (never floating point for currency at
 the ORM/DB layer), and the core percentage math additionally works in
 integer paise internally — see `docs/LLD.md` section 6 for why.
+
+## Browser Testing
+A lightweight `index.html` file is included for manual browser-based testing of the APIs with different inputs. It is provided solely for development and demonstration purposes and is not part of the production implementation.
