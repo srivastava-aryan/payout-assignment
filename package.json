@@ -1,0 +1,24 @@
+{
+  "name": "faym-payout-system",
+  "version": "1.0.0",
+  "description": "LLD + implementation of the Faym SDE Intern assignment: user payout management with advance payouts, reconciliation, and withdrawal handling.",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "demo": "node demo/runDemo.js",
+    "job:advance-payout": "node src/jobs/advancePayoutJob.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "seed": "node prisma/seed.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.20.0",
+    "express": "^5.0.0"
+  },
+  "devDependencies": {
+    "prisma": "^5.20.0",
+    "vitest": "^2.0.0"
+  }
+}
