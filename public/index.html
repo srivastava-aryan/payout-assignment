@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Faym payout system — API tester</title>
+<style>
+  :root {
+    --bg: #F7F6F2;
+    --surface: #FFFFFF;
+    --border: #E4E2D8;
+    --ink: #1D2027;
+    --muted: #6B7280;
+    --accent: #0F6E56;
+    --accent-dark: #0B5443;
+    --accent-bg: #E6F5EE;
+    --danger: #9B2C2C;
+    --danger-bg: #FBEAEA;
+    --amber: #92400E;
+    --amber-bg: #FDF3E2;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+  header.top {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 1.5rem;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  }
+  header.top h1 { font-size: 15px; font-weight: 600; margin: 0; }
+  header.top .status { font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+  header.top .status.ok { color: var(--accent); }
+  header.top .status.down { color: var(--danger); }
+
+  h2.section-title {
+    font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--muted); margin: 2.25rem 0 0.75rem;
+  }
+  h2.section-title:first-of-type { margin-top: 1.5rem; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 0.75rem;
+  }
+  .card h3 { font-size: 14px; font-weight: 600; margin: 0 0 0.15rem; }
+  .card p.hint { font-size: 12.5px; color: var(--muted); margin: 0 0 0.75rem; }
+
+  .row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+  .field { display: flex; flex-direction: column; gap: 0.25rem; flex: 1; min-width: 140px; }
+  .field label { font-size: 12px; color: var(--muted); }
+
+  input, select {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+    color: var(--ink);
+    width: 100%;
+  }
+  input:focus, select:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-bg);
+  }
+
+  button {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 0.5rem 0.9rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--accent-dark);
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  button:hover { background: var(--accent-dark); }
+  button:active { transform: scale(0.98); }
+  button.secondary {
+    background: var(--surface); color: var(--ink); border-color: var(--border);
+  }
+  button.secondary:hover { background: var(--bg); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .output {
+    margin-top: 0.75rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.6rem 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    display: none;
+    max-height: 220px;
+    overflow: auto;
+  }
+  .output.show { display: block; }
+  .output.err { background: var(--danger-bg); color: var(--danger); border-color: #EFC7C7; }
+  .output.ok { background: var(--accent-bg); color: var(--accent-dark); border-color: #BFE5D5; }
+
+  .copy-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+  .copy-row .val { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+  .copy-row button { padding: 2px 8px; font-size: 11px; font-weight: 500; }
+
+  /* Toasts */
+  #toasts {
+    position: fixed; top: 1rem; right: 1rem; z-index: 50;
+    display: flex; flex-direction: column; gap: 8px; width: 300px;
+  }
+  .toast {
+    border-radius: var(--radius);
+    padding: 0.65rem 0.85rem;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    animation: slidein 0.15s ease-out;
+  }
+  .toast.success { background: var(--accent-bg); border-color: #BFE5D5; color: var(--accent-dark); }
+  .toast.error { background: var(--danger-bg); border-color: #EFC7C7; color: var(--danger); }
+  .toast.info { background: var(--amber-bg); border-color: #F3DDA9; color: var(--amber); }
+  @keyframes slidein { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
+
+  /* Ledger tape footer */
+  .ledger-tape {
+    margin-top: 2.5rem;
+    border-top: 1px dashed var(--border);
+    padding-top: 1rem;
+  }
+  .ledger-tape h2.section-title { margin-top: 0; }
+  .tape-entries {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+  .tape-entries .empty { color: var(--muted); }
+  .tape-entry { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-bottom: 1px dotted var(--border); }
+  .tape-entry:last-child { border-bottom: none; }
+  .tape-entry .t { color: var(--muted); flex-shrink: 0; }
+  .tape-entry .a { color: var(--ink); flex: 1; text-align: left; padding: 0 8px; }
+  .tape-entry .r.ok { color: var(--accent-dark); }
+  .tape-entry .r.err { color: var(--danger); }
+</style>
+</head>
+<body>
+
+<div id="toasts"></div>
+
+<header class="top">
+  <h1>Faym payout system — API tester</h1>
+  <span class="status" id="health-status">checking…</span>
+</header>
+
+<div class="wrap">
+
+  <h2 class="section-title">Session</h2>
+  <div class="card">
+    <p class="hint">These values carry across the forms below. Paste an ID once and every action reuses it.</p>
+    <div class="row">
+      <div class="field">
+        <label for="s-userId">User ID</label>
+        <input id="s-userId" placeholder="cku1a2b3c..." />
+      </div>
+      <div class="field">
+        <label for="s-saleId">Sale ID</label>
+        <input id="s-saleId" placeholder="cku1a2b3c..." />
+      </div>
+      <div class="field">
+        <label for="s-withdrawalId">Withdrawal ID</label>
+        <input id="s-withdrawalId" placeholder="cku1a2b3c..." />
+      </div>
+    </div>
+  </div>
+
+  <h2 class="section-title">Sales</h2>
+  <div class="card">
+    <h3>Create a sale</h3>
+    <p class="hint">Uses the User ID above. Creates the brand automatically if it doesn't exist yet.</p>
+    <div class="row">
+      <div class="field">
+        <label for="cs-brand">Brand name</label>
+        <input id="cs-brand" placeholder="brand_1" value="brand_1" />
+      </div>
+      <div class="field">
+        <label for="cs-earning">Earning (₹)</label>
+        <input id="cs-earning" type="number" placeholder="40" value="40" />
+      </div>
+      <button onclick="createSale()">Create sale</button>
+    </div>
+    <div class="output" id="out-createSale"></div>
+  </div>
+
+  <div class="card">
+    <h3>List sales for user</h3>
+    <button class="secondary" onclick="listSales()">List sales</button>
+    <div class="output" id="out-listSales"></div>
+  </div>
+
+  <h2 class="section-title">Admin</h2>
+  <div class="card">
+    <h3>Run advance payout job</h3>
+    <p class="hint">Safe to click more than once — already-advanced sales are skipped.</p>
+    <button onclick="runAdvanceJob()">Run job</button>
+    <div class="output" id="out-advanceJob"></div>
+  </div>
+
+  <div class="card">
+    <h3>Reconcile a sale</h3>
+    <p class="hint">Uses the Sale ID above. Can only be done once per sale.</p>
+    <div class="row">
+      <div class="field">
+        <label for="rc-status">Outcome</label>
+        <select id="rc-status">
+          <option value="approved">approved</option>
+          <option value="rejected">rejected</option>
+        </select>
+      </div>
+      <button onclick="reconcileSale()">Reconcile</button>
+    </div>
+    <div class="output" id="out-reconcile"></div>
+  </div>
+
+  <h2 class="section-title">Balance</h2>
+  <div class="card">
+    <h3>Withdrawable balance</h3>
+    <button class="secondary" onclick="getBalance()">Get balance</button>
+    <div class="output" id="out-balance"></div>
+  </div>
+
+  <div class="card">
+    <h3>Ledger history</h3>
+    <button class="secondary" onclick="getLedger()">Get ledger</button>
+    <div class="output" id="out-ledger"></div>
+  </div>
+
+  <h2 class="section-title">Withdrawals</h2>
+  <div class="card">
+    <h3>Request a withdrawal</h3>
+    <p class="hint">Limited to one every 24 hours — a second attempt should show an error here.</p>
+    <div class="row">
+      <div class="field">
+        <label for="wd-amount">Amount (₹)</label>
+        <input id="wd-amount" type="number" placeholder="20" value="20" />
+      </div>
+      <button onclick="requestWithdrawal()">Request withdrawal</button>
+    </div>
+    <div class="output" id="out-withdraw"></div>
+  </div>
+
+  <div class="card">
+    <h3>Settle a withdrawal</h3>
+    <p class="hint">Uses the Withdrawal ID above. Simulates a payment-provider webhook.</p>
+    <div class="row">
+      <div class="field">
+        <label for="settle-status">Outcome</label>
+        <select id="settle-status">
+          <option value="success">success</option>
+          <option value="failed">failed</option>
+          <option value="rejected">rejected</option>
+          <option value="cancelled">cancelled</option>
+        </select>
+      </div>
+      <button onclick="settleWithdrawal()">Settle</button>
+    </div>
+    <div class="output" id="out-settle"></div>
+  </div>
+
+  <div class="ledger-tape">
+    <h2 class="section-title">Activity log</h2>
+    <div class="tape-entries" id="tape">
+      <div class="empty">No actions yet — try one of the buttons above.</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const BASE = "/api";
+  const tapeEl = document.getElementById("tape");
+  const toastsEl = document.getElementById("toasts");
+  let tapeLog = [];
+
+  // Session fields persist locally so a page reload doesn't lose your IDs.
+  const sessionFields = ["userId", "saleId", "withdrawalId"];
+  sessionFields.forEach((key) => {
+    const el = document.getElementById("s-" + key);
+    el.value = localStorage.getItem("faym-" + key) || "";
+    el.addEventListener("input", () => localStorage.setItem("faym-" + key, el.value));
+  });
+  function sessionValue(key) { return document.getElementById("s-" + key).value.trim(); }
+  function setSessionValue(key, value) {
+    const el = document.getElementById("s-" + key);
+    el.value = value;
+    localStorage.setItem("faym-" + key, value);
+  }
+
+  function showToast(message, type) {
+    const el = document.createElement("div");
+    el.className = "toast " + type;
+    el.textContent = message;
+    toastsEl.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+
+  function logTape(action, ok, detail) {
+    const time = new Date().toLocaleTimeString();
+    tapeLog.unshift({ time, action, ok, detail });
+    tapeLog = tapeLog.slice(0, 30);
+    tapeEl.innerHTML = tapeLog
+      .map(
+        (e) =>
+          '<div class="tape-entry"><span class="t">' + e.time + '</span>' +
+          '<span class="a">' + e.action + (e.detail ? " — " + e.detail : "") + '</span>' +
+          '<span class="r ' + (e.ok ? "ok" : "err") + '">' + (e.ok ? "ok" : "error") + '</span></div>'
+      )
+      .join("");
+  }
+
+  function showOutput(elId, data, isError) {
+    const el = document.getElementById(elId);
+    el.textContent = JSON.stringify(data, null, 2);
+    el.className = "output show " + (isError ? "err" : "ok");
+  }
+
+  async function callApi(method, path, body, actionLabel) {
+    try {
+      const res = await fetch(BASE + path, {
+        method,
+        headers: body ? { "Content-Type": "application/json" } : undefined,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message = data.error || ("Request failed (" + res.status + ")");
+        showToast(actionLabel + " failed: " + message, "error");
+        logTape(actionLabel, false, message);
+        return { ok: false, data };
+      }
+      showToast(actionLabel + " succeeded", "success");
+      logTape(actionLabel, true, "");
+      return { ok: true, data };
+    } catch (err) {
+      showToast(actionLabel + " failed: could not reach the server", "error");
+      logTape(actionLabel, false, "network error");
+      return { ok: false, data: { error: "Network error — is the server running?" } };
+    }
+  }
+
+  async function checkHealth() {
+    const statusEl = document.getElementById("health-status");
+    try {
+      const res = await fetch(BASE.replace("/api", "") + "/health");
+      if (res.ok) {
+        statusEl.textContent = "server reachable";
+        statusEl.className = "status ok";
+      } else {
+        throw new Error();
+      }
+    } catch {
+      statusEl.textContent = "server not reachable — run npm run dev";
+      statusEl.className = "status down";
+    }
+  }
+  checkHealth();
+
+  async function createSale() {
+    const userId = sessionValue("userId");
+    if (!userId) return showToast("Enter a User ID first", "info");
+    const brandName = document.getElementById("cs-brand").value.trim();
+    const earning = Number(document.getElementById("cs-earning").value);
+    const { ok, data } = await callApi("POST", "/sales", { userId, brandName, earning }, "Create sale");
+    showOutput("out-createSale", data, !ok);
+    if (ok && data.id) setSessionValue("saleId", data.id);
+  }
+
+  async function listSales() {
+    const userId = sessionValue("userId");
+    if (!userId) return showToast("Enter a User ID first", "info");
+    const { ok, data } = await callApi("GET", "/users/" + userId + "/sales", null, "List sales");
+    showOutput("out-listSales", data, !ok);
+  }
+
+  async function runAdvanceJob() {
+    const { ok, data } = await callApi("POST", "/admin/jobs/advance-payout", {}, "Advance payout job");
+    showOutput("out-advanceJob", data, !ok);
+  }
+
+  async function reconcileSale() {
+    const saleId = sessionValue("saleId");
+    if (!saleId) return showToast("Enter a Sale ID first", "info");
+    const status = document.getElementById("rc-status").value;
+    const { ok, data } = await callApi("POST", "/admin/sales/" + saleId + "/reconcile", { status }, "Reconcile sale");
+    showOutput("out-reconcile", data, !ok);
+  }
+
+  async function getBalance() {
+    const userId = sessionValue("userId");
+    if (!userId) return showToast("Enter a User ID first", "info");
+    const { ok, data } = await callApi("GET", "/users/" + userId + "/balance", null, "Get balance");
+    showOutput("out-balance", data, !ok);
+  }
+
+  async function getLedger() {
+    const userId = sessionValue("userId");
+    if (!userId) return showToast("Enter a User ID first", "info");
+    const { ok, data } = await callApi("GET", "/users/" + userId + "/ledger", null, "Get ledger");
+    showOutput("out-ledger", data, !ok);
+  }
+
+  async function requestWithdrawal() {
+    const userId = sessionValue("userId");
+    if (!userId) return showToast("Enter a User ID first", "info");
+    const amount = Number(document.getElementById("wd-amount").value);
+    const { ok, data } = await callApi("POST", "/users/" + userId + "/withdrawals", { amount }, "Request withdrawal");
+    showOutput("out-withdraw", data, !ok);
+    if (ok && data.id) setSessionValue("withdrawalId", data.id);
+  }
+
+  async function settleWithdrawal() {
+    const withdrawalId = sessionValue("withdrawalId");
+    if (!withdrawalId) return showToast("Enter a Withdrawal ID first", "info");
+    const status = document.getElementById("settle-status").value;
+    const { ok, data } = await callApi("PATCH", "/withdrawals/" + withdrawalId + "/status", { status }, "Settle withdrawal");
+    showOutput("out-settle", data, !ok);
+  }
+</script>
+
+</body>
+</html>
